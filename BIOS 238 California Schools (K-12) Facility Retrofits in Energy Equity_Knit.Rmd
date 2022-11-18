@@ -1,0 +1,346 @@
+---
+title: "Quantifying the Impacts of Building Retrofits in Energy Equity"
+author: "Devan Addison-Turner"
+date: '2022-05-27'
+output:
+  html_document:
+    df_print: paged
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+```{r cars}
+summary(cars)
+```
+
+```{r}
+#BIOS 238: Principles and Techniques for Data Visualization
+#Instructor: Rebecca Gellman 
+#Spring 2022
+#School of Medicine
+#Stanford University 
+
+#California School (K-12) Building Retrofits in Energy Equity Project
+
+#Research Question: What group consumes the most energy (kilowatt-hour)
+#in public and secondary school (K-12) buildings across the entire state of California?
+
+#The objective is to evaluate the annual energy consumed by school buildings in 
+#California compared to the energy consumed per pupil within the school buildings 
+#across 3 median income classes: high, low, and medium to identify any trends 
+#over a several year period (2013-2017). 
+
+#Note: The year 2015 is missing from this dataset. 
+
+#A pupil is described as a person or learner who is enrolled in an 
+#educational institution or school. It is also used to refer to someone 
+#who is under the direct supervision of a teacher because he is either a 
+#minor or has special needs. In most parts of the world, such as England and in 
+#Asia, the term “pupil” is used to refer to schoolchildren who are in the 
+#primary and elementary grades as well as those in secondary schools.
+
+#Read more: Difference Between Pupil and Student #,http://www.differencebetween.net/language/words-language/difference-between-pupil
+#-and-student/#ixzz7VW1ok8Gy
+
+#Data: The data used was collected and aggregated from 
+#Pacific Gas & Electric Energy 
+#consumption (loads/rate of energy on kilowatts per hour), 
+#American Community Survey data 2015-2019 for the median income of (K-12) 
+#student populations, and Stanford Education Data Archive to 
+#compute a diversity index based on a formula from the U.S. Census Bureau 
+#according to race. Furthermore, I analyzed the average rate of energy consumed 
+#by school buildings and the average rate of energy consumed per pupil 
+#during a 4 year period. Two conditions were applied to test the 
+#variance of energy consumption using the diversity index and retrofit treatment. 
+
+#Data sample size (n = 2,306 observations)
+#2,036 datapoints represent smart meters to measure energy peformance in school
+#facilities (K-12) in California. There are 535 schools in this dataset. 
+
+#The first metric, income, is the median household income of the census tract 
+#in which the school is located. High, medium, and low-income subsets were 
+#created based on the California Department of Housing and Community Development 
+#definition of a low-income community having a median household income at or below 
+#80% of the statewide median household income. According to the ACS, for 2016-2020 
+#California’s median household income was $78,672. Therefore, the cutoff 
+#for a school in a low-income community is a median household income at or below 
+#$62,937. The high-income community is defined as having a median income at or 
+#above 150% of the statewide median household income,or $118,008.
+
+#The second metric we use is the Diversity Index of the student population. 
+#The Diversity Index is a measure (bounded between 0 and 1) of the probability 
+#that two people randomly chosen from the population will belong to 
+#different race and ethnicity groups. The US Census defines the Diversity Index (DI) 
+#as: DI = 1 – (H² + W² + B² + AIAN² + Asian²), Where H is the proportion 
+#of the population who are Hispanic or Latino, W is the proportion of the 
+#population who are White alone, B is the proportion of the population who are 
+#Black or African American alone, AIAN is the proportion of the population 
+#who are American Indian or Alaska Native alone, and Asian is the proportion 
+#of the population who are Asian alone. The DI of each school was calculated, 
+#then calculated the quintiles of the DI of our population to set cutoffs 
+#for high- and low-diversity schools. High-diversity schools are in the 
+#top quintile (DI is greater than or equal to 0.58) and low-diversity schools 
+#are in the bottom quintile 
+#(DI is less than or equal to0.21). The diversity index is from 0 to 1, 
+#with 0 being everyone is the 
+#same race and 1 being everyone is a different race.
+
+#The third metric is retrofit impact on energy consumption, 0 as being a 
+#non-retrofit school and 1 being a school that received retrofits treatment. 
+#In theory, retrofits should reduce energy consumption, which is validated in the graph.
+
+#Now is the development of my linear regression model to perform the analysis:
+```
+
+
+```{r}
+#Pro-Tips: Make sure to select the PDF format when creating a 
+#new RMarkdown file and install tinytex package to Knit file to PDF. 
+#Install tinytex package to Knit RMarkdown File to PDF.
+
+#install.packages('tinytex')
+#install.packages("tinytex", repos = "http://cran.us.r-project.org")
+#tinytex::install_tinytex()
+
+library(tinytex)
+#set working directory and specify file path from my computer
+setwd("~devanaddisonturner/Documents/GitHub/devanaddisonturner.github.io/BIOS 238_Princ. and Tech. for Data Visualization")
+#imports impacts_PGE csv. file from my working directory 
+impacts_PGE <- read.csv("impacts_PGE.csv")
+```
+
+```{r}
+#install packages
+#install.packages('RMySQL', repos='http://cran.us.r-project.org')
+```
+
+```{r}
+#install.packages("tidyverse")
+#install.packages("viridis")
+#install.packages("units")
+#if (!require("RColorBrewer")) {
+#install.packages("RColorBrewer")
+library(RColorBrewer)
+#}
+#loads packages
+library (viridis)
+library(tidyverse)
+library(stringr)
+library(units)
+```
+
+```{r}
+#This provides the description of what is contained within each 
+#individual variable in the original dataset impacts_PGE, shows first  6 rows and all columns 
+data()
+data(impacts_PGE)
+head(impacts_PGE)
+summary(impacts_PGE)
+```
+
+```{r}
+#Creates a new dataframe impacts_PGE from the original file called impacts_2 
+impacts_2 <- impacts_PGE
+```
+
+```{r}
+#Used high median income and low median income from the impacts 2 dataframe as 
+#references to create new columns with 3 subsets 
+high_income <- subset(impacts_2, Median_income_households >= 109773) %>% 
+  mutate(income = "high median income")
+medium_income<- subset(impacts_2, Median_income_households > 58545 & Median_income_households < 109773) %>% 
+  mutate(income = "medium median income")
+low_income <- subset(impacts_2, Median_income_households <= 58545) %>% 
+  mutate(income = "low median income")
+#created a new column (variable) for median income subset using the low median 
+#income threshold there is not a threshold for median income from original data, 
+#however, I am grouping every census tract  based on what is in 
+#between the median low median income households and high median income households 
+#created a new dataframe called impacts_3, using the rbind function.The rbind function 
+#combines the 3 new columns according to 3 median income profiles into a new dataframe 
+#called impacts 3. 
+impacts_3 <- rbind(high_income, medium_income, low_income)
+```
+
+```{r}
+#Metric 1 - Median Income
+
+#American Community Survey median household income for 8,035 census tracts in California. 
+#High, medium, and low-income subsets were created based on the 
+#California Department of Housing and Community Development.
+#A low-income community is defined as median household income at or below 80% 
+#of the statewide median household income. 
+#For 2016-2020 California’s median household income was $78,672,
+#and for a school in a low-income community is at or below $62,937. 
+#The high-income community is defined as having a median income at 
+#or above 15% of the statewide median household income or $118,008.
+#The medium-income community is undefined, however, I created a third subset 
+#to group the households whose median income is between $118,008 and $62,937.
+
+
+ggplot(impacts_3, aes(x=kwh_person, y=Annual_energy)) +
+#geom specifies the type of graph points to be displayed to compares the 
+#annual energy consumed by student compared to the annual total energy 
+#consumed by the school buildings
+  geom_point() + geom_abline(aes(intercept = 0, slope = 675), color = "red", linetype =2) + 
+  facet_grid(year ~income) + 
+  xlim(0, 2000) + ylim(0, 3e+06) +
+#facet grid separates plots groups into separate bins on individual grids 
+#based on the annual energy consumed by each pupil starting from the 
+#year 2013 to 2017 period across the 3 median income profiles 
+#high, low, medium income. 
+#The limits for the range in both x and y directions are 
+#adjusted to zoom in on the graphs. I created a red, dashed trend line to 
+#display on the graph. 
+labs(x= "Average Rate of Energy Consumed Per Pupil (kwh)", 
+       y = "Average Rate of Energy Consumed by School Building (kwh)", 
+        title = "California School Buildings Energy Equity Analysis (K-12)") + 
+  theme(plot.title = element_text(hjust = 0.5)) # Center ggplot title
+
+#Results:Pupils in the lowest income classes consumed the most amount of energy, 
+#pupils in the medium income classes were ranked second for energy consumption, 
+#and the students in the high-income class consumed the least amount of energy. 
+#Schools from three median income classes consumed the most energy in the year 2014, 
+#although, consumed the least in 2013. After 2014, schools reduced '
+#energy consumption through 2017.
+```
+
+```{r}
+#Metric 2. Diversity Index Metric 
+
+#DI = measure (bounded between 0 and 1) of the probability that two people 
+#randomly chosen from the population will belong to 
+#different race and ethnicity groups. The US Census defines the Diversity Index (DI) as:
+#DI = 1 – (H² + W² + B² + AIAN² + Asian²)
+#H = proportion of the population who are Hispanic or Latino, 
+#W = proportion of the population who are White alone, 
+#B = proportion of the population who are Black or African American alone,  
+#AIAN = proportion of the population who are American Indian or Alaska Native alone, 
+#Asian = proportion of the population who are Asian alone
+#We calculated the DI of each school, then calculated the quintiles 
+#of the DI of our population to set cutoffs for high and low-diversity schools. 
+#High-diversity schools are in the top quintile (DI  = 0.58) 
+#and low-diversity schools are in the bottom quintile (DI  = 0.21).
+
+#Create 2-D scatterplots with color using ggplot function from impacts_3 dataframe
+ggplot(impacts_3, aes(x=kwh_person, y=Annual_energy, color =  Diversity_Index, alpha = 1)) +
+#geom specifies the type of graph points to be displayed
+  geom_point(size = 0.75) + facet_grid(year ~income) + xlim(0, 2000) + ylim(0, 3e+06) + scale_color_viridis() +
+labs(x = "Average Rate of Energy Consumed Per Pupil (kwh)", 
+       y = "Avergae Rate of Energy Consumed by School Building (kwh)", 
+       title = "California School Buildings Energy Equity Analysis (K-12)") + 
+  theme(plot.title = element_text(hjust = 0.5))  # Center ggplot title
+#facet grid separates plots groups into separate categories on 
+#individual grids for based on the annual energy consumed by 
+#each pupil starting from the year 2013 to 2017 period across the 
+#3 median income profiles high, low, medium income. 
+#There is another factor used, Diversity Index to test variance. 
+#Applied the color palette viridis 
+#facet grid separates plots groups into separate bins on 
+#individual grids for based on the annual energy  consumed by 
+#each pupil starting from the year 2013 to 2017 period across the 
+#3 median income profiles high, low, medium income.
+```
+
+```{r}
+#Metric 3 - Retrofits Treatment
+
+#Create 2-D line graphs with color using ggplot function from impacts_3 dataframe
+ggplot(impacts_3, aes(x = as.factor(year), y = Annual_energy, color = as.factor(retrofit))) +
+geom_violin() + # keep year as numeric 
+#geom specifies the type of graph points to be displayed
+guides(color = guide_legend(title = "Retrofit")) + 
+labs(x = "Year", #Manually set labels
+       y = "Average Rate of Energy Consumed by School Building (kwh)", 
+        title = "California School Buildings Energy Equity Analysis (K-12)") + 
+  theme(plot.title = element_text(hjust = 0.5))  # Center ggplot title
+
+#Public and secondary schools in California consume less energy 
+#with pupils from higher median income classes each year 
+#from 2013 to 2017. However, schools consumed more energy 
+#with higher levels of diversity. Schools increased their 
+#diverse enrollment. There is a higher concentration 
+#of diverse students in both medium and low income classes 
+#who consumed the most energy. Across all three income subsets, 
+#the less diverse, higher income schools consumed the least amount of energy.
+
+#Assumptions of Key Factors
+#1. School districts are using different energy efficiency technology 
+#(e.g., heat pumps, HVAC, mixed ventilation, lighting). 
+#2. There is a Higher number of pupils enrolled and attending classes (in-person) 
+#by location, income level, and health factors, which impacts energy efficiency
+#with less people occupying schools (physical campus).
+#3. Year of construction (e.g., durability, structural integrity)
+#4. Building materials (e.g., deterioration, thermal insulation)
+#5. Size, sq footage (area), number of floors, space functions, equipment
+#6. Geographic location of schools within school districts 
+#(e.g., land-use policies, climate zones) 
+#7. Proximity of schools near sources producing high pollution concentrations 
+#from buildings, transportation, and the natural environment 
+#8. Fuel source in schools could impact energy efficiency 
+#(e.g., oil & gas, renewable, electric) 
+
+
+#Results: In the first graph, the results show that pupils in the 
+#lowest median income groups consume the most amount of energy and the 
+#medium median income pupil group are ranked second as consuming the 
+#most energy by school buildings and per pupil that occupy the school buildings, 
+#while the high median income students consume the least amount of energy. 
+#All 3 median income classes consumed the most energy in the year 2014, although, 
+#consumed the least in 2013. After 2014, the average rate of energy consumed by 
+#both school buildings and students reduced over time. I assume that in 2015, 
+#the schools began to receive retrofits, decreasing the rate of energy consumed.  
+
+#In the second graph, my inference is that public and secondary schools in 
+#California consume less energy with students from higher median income classes 
+#each year from 2013 to 2017. However, schools consume more energy with higher 
+#levels of diversity. Based on the DI graph, more students of higher diversity 
+#consume more energy. There is a higher concentration of diverse students in 
+#both medium median and low median income classes. Across all three income subsets, 
+#the less diverse, higher income schools consumed the least amount of energy.
+
+#Finally, the last graph is intended to compare the average energy consumption 
+#by school buildings annually and the impact of retrofits from 2013-2017. 
+#Also, the class setting (in-person, hybrid, or virtual) would impact energy performance 
+#in building. The shape sizes (length and width) are indicative of how much energy is 
+#consumed in the longitudinal direction, while the width is the number of schools 
+#within a cluster (proximity of individual schools distance to one another or 
+#the number of schools within each school district. In 2014, I speculate that 
+#more schools began to receive retrofit/upgrades during this time due to the 
+#this being the year of highest energy consumption during a several year period. 
+#As the average rate of energy consumed by buildings annually goes to down to 0 kwh, 
+#pupils were probably rezoned within school districts, so there may have been 
+#time periods where a number of schools were closed for renovations and construction, 
+#not using power. It is possible that schools were being shutdown permanently as well.
+
+#Future Research: During what times of the day are students and buildings 
+#consuming the most energy? My hypothesis is that the energy efficient school buildings 
+#are using different technologies to reduce consumption of energy 
+#(e.g. heat pumps, (Mechanical and Natural), HVAC and lighting packages. 
+#Other considerations that may impact energy consumption are the year 
+#when the school buildings were constructed, building materials (insulation/thermal efficiency), geographically (climate zones), and fuel sources (e.g., oil & gas, renewable, electric). 
+
+#I intend to collect weather station data, test scores, pollution concentrations/sources including transportation vehicles, and COVID-19 infection data, then aggregate to the current dataset. 
+#Finally, I will create maps to identify the location of the school districts most 
+#at risk based on the various factors aforementioned. 
+```
+
+
+## Including Plots
+
+You can also embed plots, for example:
+
+```{r pressure, echo=FALSE}
+plot(pressure)
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
